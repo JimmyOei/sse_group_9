@@ -65,3 +65,12 @@ Example
 node merge_sort.js 1000
 ```
 
+
+## Experiment Script
+To run the experiment script, adjust the hardcoded parameters if needed, and then executed it with `sudo`:
+
+```bash
+sudo ./run_experiment.sh
+```
+
+The EnergiBridge csv results will be saved in the `results/` directory. Each run will generate a separate CSV file named according to the dataset size and implementation (e.g., `results/python_1000.csv` and `results/javascript_1000.csv`).
