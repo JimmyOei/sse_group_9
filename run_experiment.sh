@@ -4,11 +4,11 @@
 ENERGIBRIDGE_CMD="./EnergiBridge/target/release/energibridge"
 NODE_CMD="node"
 PYTHON_CMD="python3"
-RESULTS_DIR="./results_MacOS_M1/merge_sort"  # output directory for results
-ITERATIONS=30  # number of runs per dataset entry
+RESULTS_DIR="./results_MacOS_M1/quick_sort"  # output directory for results
+ITERATIONS=10  # number of runs per dataset entry
 COOLDOWN=10  # seconds between runs
-PYTHON_SCRIPT="merge_sort.py" # merge_sort.py, heap_sort.py, quick_sort.py
-JS_SCRIPT="merge_sort.js" # merge_sort.js, heap_sort.js, quick_sort.js
+PYTHON_SCRIPT="quick_sort.py" # merge_sort.py, heap_sort.py, quick_sort.py
+JS_SCRIPT="quick_sort.js" # merge_sort.js, heap_sort.js, quick_sort.js
 DATASET_FILES=(datasets/input-*.txt)
 
 EXPERIMENT_START=$SECONDS
