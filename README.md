@@ -147,3 +147,8 @@ sudo ./run_experiment.sh
 ```
 
 The EnergiBridge csv results will be saved in the `results/` directory. Each run will generate a separate CSV file named according to the dataset size and implementation (e.g., `results/python_1000.csv` and `results/javascript_1000.csv`).
+
+## Experiment results Mac M1 Pro
+Merge sort total experiment time: 34min 34s
+Heap sort total experiment time: 36min 13s
+Quick sort total experiment time: 34min 15s
