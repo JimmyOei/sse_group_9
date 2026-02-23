@@ -1,19 +1,23 @@
 #!/bin/bash
 
 # Configuration of experiment
-ENERGIBRIDGE="./EnergiBridge/target/release/energibridge"
-RESULTS_DIR="./results"  # output directory for results
-ITERATIONS=2  # number of runs per dataset entry
+ENERGIBRIDGE_CMD="./EnergiBridge/target/release/energibridge"
+NODE_CMD="node"
+PYTHON_CMD="python3"
+RESULTS_DIR="./results_MacOS_M1/merge_sort"  # output directory for results
+ITERATIONS=30  # number of runs per dataset entry
 COOLDOWN=10  # seconds between runs
-PYTHON_SCRIPT="merge_sort.py"
-JS_SCRIPT="merge_sort.js"
+PYTHON_SCRIPT="merge_sort.py" # merge_sort.py, heap_sort.py, quick_sort.py
+JS_SCRIPT="merge_sort.js" # merge_sort.js, heap_sort.js, quick_sort.js
 DATASET_FILES=(datasets/input-*.txt)
+
+EXPERIMENT_START=$SECONDS
 
 echo "============================================"
 echo "  Running Experiment"
 echo "============================================"
-echo "Python version:  $(python3 --version)"
-echo "Node version:    $(node --version)"
+echo "Python version:  $($PYTHON_CMD --version)"
+echo "Node version:    $($NODE_CMD --version)"
 echo "Iterations per config: $ITERATIONS"
 echo "Cooldown between runs: ${COOLDOWN}s"
 echo "Dataset files: ${DATASET_FILES[*]}"
@@ -41,10 +45,10 @@ for dataset_file in "${DATASET_FILES[@]}"; do
         OUTPUT_FILE="$RESULTS_DIR/python/dataset_${dataset}/run_${i}.csv"
         echo "[$CURRENT_RUN/$TOTAL_RUNS] Python | dataset=$dataset | run $i/$ITERATIONS"
 
-        sudo "$ENERGIBRIDGE" \
+        sudo "$ENERGIBRIDGE_CMD" \
             -o "$OUTPUT_FILE" \
             --summary \
-            python3 "$PYTHON_SCRIPT" "$dataset" > /dev/null 2>&1
+            $PYTHON_CMD "$PYTHON_SCRIPT" "$dataset" > /dev/null 2>&1
 
         if [ $? -ne 0 ]; then
             echo "  WARNING: Run failed"
@@ -59,10 +63,10 @@ for dataset_file in "${DATASET_FILES[@]}"; do
         OUTPUT_FILE="$RESULTS_DIR/javascript/dataset_${dataset}/run_${i}.csv"
         echo "[$CURRENT_RUN/$TOTAL_RUNS] JavaScript | dataset=$dataset | run $i/$ITERATIONS"
 
-        sudo "$ENERGIBRIDGE" \
+        sudo "$ENERGIBRIDGE_CMD" \
             -o "$OUTPUT_FILE" \
             --summary \
-            node "$JS_SCRIPT" "$dataset" > /dev/null 2>&1
+            $NODE_CMD "$JS_SCRIPT" "$dataset" > /dev/null 2>&1
 
         if [ $? -ne 0 ]; then
             echo "  WARNING: Run failed"
@@ -75,8 +79,13 @@ for dataset_file in "${DATASET_FILES[@]}"; do
     echo ""
 done
 
+EXPERIMENT_DURATION=$(( SECONDS - EXPERIMENT_START ))
+EXPERIMENT_MINS=$(( EXPERIMENT_DURATION / 60 ))
+EXPERIMENT_SECS=$(( EXPERIMENT_DURATION % 60 ))
+
 echo "============================================"
 echo "  Experiment complete!"
+echo "  Total time: ${EXPERIMENT_MINS}m ${EXPERIMENT_SECS}s"
 echo "  Results saved to: $RESULTS_DIR/"
 if [ ${#FAILED_RUNS[@]} -gt 0 ]; then
     echo "Failed runs $(( ${#FAILED_RUNS[@]} )):"
