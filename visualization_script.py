@@ -9,30 +9,30 @@ warnings.filterwarnings("ignore")
 BASE_DIR = "."
 
 # ==========================================
-# COLOR PALETTE  (Okabe-Ito inspired — colorblind-safe & visually distinct)
+# COLOR PALETTE
 # ==========================================
 
 # Languages
 LANG_COLOR_LIST = [
-    "#0077BB",   # Python     — strong blue
-    "#EE7733",   # JavaScript — warm orange
+    "#0077BB",
+    "#EE7733",
 ]
 
 # Algorithms (3 entries)
 ALG_COLOR_LIST = [
-    "#009988",   # teal
-    "#CC3311",   # red
-    "#7B2D8B",   # purple
+    "#009988",
+    "#CC3311",
+    "#7B2D8B",
 ]
 
-# Language × Algorithm combos (6 entries, all clearly distinguishable)
+# Language x Algorithm combos
 COMBO_PALETTE = [
-    "#0077BB",   # Python  + algo0  — blue
-    "#33BBEE",   # Python  + algo1  — sky blue
-    "#004488",   # Python  + algo2  — dark blue
-    "#EE7733",   # JS      + algo0  — orange
-    "#EE3377",   # JS      + algo1  — pink-red
-    "#AA3377",   # JS      + algo2  — purple-rose
+    "#0077BB",
+    "#33BBEE",
+    "#004488",
+    "#EE7733",
+    "#EE3377",
+    "#AA3377",
 ]
 
 def get_combo_color(lang_idx, alg_idx, n_algs=3):
@@ -539,14 +539,14 @@ def plot_total_energy_stacked(df):
                  alpha=0.85, edgecolor="white", width=0.55)
         ax.set_xlabel("Algorithm")
         ax.set_ylabel("Mean Energy (J)")
-        ax.set_title(f"Mean Energy per Algorithm — {device}")
+        ax.set_title(f"Mean Energy per Algorithm (Language breakdown) — {device}")
         ax.set_xticklabels(agg.index, rotation=0)
         ax.legend(title="Language")
         savefig(f"energy_breakdown_{device}.png")
 
 
 # ==========================================
-# PLOT 13 — Device Comparison
+# PLOT 14 — Device Comparison
 # ==========================================
 
 def plot_device_comparison(df):
@@ -605,6 +605,366 @@ def main():
 
     print(f"\nAll plots saved to '{SAVE_DIR}/'")
 
+    # aggregated (both devices averaged into one)
+    print("\nGenerating aggregated plots (devices averaged) ...")
+    df_agg = aggregate_devices(df)
+    plot_agg_energy_vs_size(df_agg)
+    plot_agg_time_vs_size(df_agg)
+    plot_agg_language_comparison_bar(df_agg)
+    plot_agg_algorithm_comparison_bar(df_agg)
+    plot_agg_energy_per_size_per_language(df_agg)
+    plot_agg_heatmap(df_agg)
+    plot_agg_violin_language(df_agg)
+    plot_agg_violin_algorithm(df_agg)
+    plot_agg_power_draw(df_agg)
+    plot_agg_energy_ratio(df_agg)
+    plot_agg_boxplot(df_agg)
+    plot_agg_energy_breakdown(df_agg)
+    print(f"\nAll aggregated plots saved to '{SAVE_DIR}/agg_*.png'")
+
+
+# ================================================================
+# DEVICE AGGREGATION
+# ================================================================
+
+def aggregate_devices(df):
+    """
+    Average energy and time across devices for every
+    (language, algorithm, size, run) combination.
+    Returns a new DataFrame without the 'device' column —
+    each row is the mean of both devices for that run slot.
+    If the two devices have different numbers of runs, the
+    groupby mean still works correctly (it averages whatever
+    is present).
+    """
+    agg = (df.groupby(["language", "algorithm", "size", "run"],
+                       as_index=False)[["energy", "time"]]
+             .mean())
+    return agg
+
+
+# ================================================================
+# AGGREGATED PLOTS
+# ================================================================
+
+# Mean Energy vs Dataset Size
+
+def plot_agg_energy_vs_size(df):
+    
+    sizes      = sorted(df["size"].unique())
+    languages  = sorted(df["language"].unique())
+    algorithms = sorted(df["algorithm"].unique())
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    mean_s = df.groupby(["language", "algorithm", "size"])["energy"].mean()
+
+    for li, lang in enumerate(languages):
+        for ai, alg in enumerate(algorithms):
+            color = get_combo_color(li, ai, len(algorithms))
+            means = [mean_s.get((lang, alg, s), np.nan) for s in sizes]
+            ax.plot(sizes, means, color=color,
+                    label=f"{lang} — {alg}",
+                    marker="o", linewidth=1.8, markersize=5)
+
+    set_log_xaxis(ax, sizes)
+    ax.set_xlabel("Dataset Size (log scale)")
+    ax.set_ylabel("Mean Energy (Joules)")
+    ax.set_title("Mean Energy vs Dataset Size (devices averaged)")
+    ax.legend(fontsize=8, ncol=2)
+    savefig("agg_energy_vs_size.png")
+
+
+# Mean Execution Time vs Dataset Size
+
+def plot_agg_time_vs_size(df):
+    sizes      = sorted(df["size"].unique())
+    languages  = sorted(df["language"].unique())
+    algorithms = sorted(df["algorithm"].unique())
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    mean_s = df.groupby(["language", "algorithm", "size"])["time"].mean()
+
+    for li, lang in enumerate(languages):
+        for ai, alg in enumerate(algorithms):
+            color = get_combo_color(li, ai, len(algorithms))
+            means = [mean_s.get((lang, alg, s), np.nan) for s in sizes]
+            ax.plot(sizes, means, color=color,
+                    label=f"{lang} — {alg}",
+                    marker="o", linewidth=1.8, markersize=5)
+
+    set_log_xaxis(ax, sizes)
+    ax.set_xlabel("Dataset Size (log scale)")
+    ax.set_ylabel("Mean Execution Time (s)")
+    ax.set_title("Mean Execution Time vs Dataset Size (devices averaged)")
+    ax.legend(fontsize=8, ncol=2)
+    savefig("agg_time_vs_size.png")
+
+
+# Bar: Language Comparison per Algorithm
+
+def plot_agg_language_comparison_bar(df):
+    algorithms = sorted(df["algorithm"].unique())
+    languages  = sorted(df["language"].unique())
+    x     = np.arange(len(algorithms))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    for i, lang in enumerate(languages):
+        means = [df[(df["language"] == lang) & (df["algorithm"] == alg)]["energy"].mean()
+                 for alg in algorithms]
+        color = LANG_COLOR_LIST[i] if i < len(LANG_COLOR_LIST) else f"C{i}"
+        ax.bar(x + i * width - width / 2, means, width,
+               label=lang, color=color, alpha=0.85)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(algorithms)
+    ax.set_xlabel("Algorithm")
+    ax.set_ylabel("Mean Energy (J)")
+    ax.set_title("Energy: Language Comparison per Algorithm (devices averaged)")
+    ax.legend()
+    savefig("agg_lang_vs_algo_bar.png")
+
+
+# Bar: Algorithm Comparison per Language
+
+def plot_agg_algorithm_comparison_bar(df):
+    languages  = sorted(df["language"].unique())
+    algorithms = sorted(df["algorithm"].unique())
+    x     = np.arange(len(languages))
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    for i, alg in enumerate(algorithms):
+        means = [df[(df["algorithm"] == alg) & (df["language"] == lang)]["energy"].mean()
+                 for lang in languages]
+        color = ALG_COLOR_LIST[i] if i < len(ALG_COLOR_LIST) else f"C{i}"
+        offset = (i - len(algorithms) / 2 + 0.5) * width
+        ax.bar(x + offset, means, width,
+               label=alg, color=color, alpha=0.85)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(languages)
+    ax.set_xlabel("Language")
+    ax.set_ylabel("Mean Energy (J)")
+    ax.set_title("Energy: Algorithm Comparison per Language (devices averaged)")
+    ax.legend()
+    savefig("agg_algo_vs_lang_bar.png")
+
+
+# Energy per Size per Language, per-algo subplots
+
+def plot_agg_energy_per_size_per_language(df):
+    sizes      = sorted(df["size"].unique())
+    algorithms = sorted(df["algorithm"].unique())
+    languages  = sorted(df["language"].unique())
+
+    fig, axes = plt.subplots(1, len(algorithms),
+                             figsize=(5 * len(algorithms), 5), sharey=False)
+    if len(algorithms) == 1:
+        axes = [axes]
+
+    for ax, alg in zip(axes, algorithms):
+        for i, lang in enumerate(languages):
+            means = []
+            for s in sizes:
+                subset = df[(df["algorithm"] == alg) &
+                            (df["language"] == lang) &
+                            (df["size"] == s)]["energy"]
+                means.append(subset.mean() if len(subset) > 0 else np.nan)
+            color = LANG_COLOR_LIST[i] if i < len(LANG_COLOR_LIST) else f"C{i}"
+            ax.plot(sizes, means, color=color, label=lang,
+                    marker="o", linewidth=1.8, markersize=5)
+        set_log_xaxis(ax, sizes)
+        ax.set_xlabel("Dataset Size (log scale)")
+        ax.set_ylabel("Mean Energy (J)")
+        ax.set_title(alg)
+        ax.legend(fontsize=9)
+
+    fig.suptitle("Energy per Dataset Size per Language (devices averaged)", fontsize=13)
+    savefig("agg_energy_per_size_per_lang.png")
+
+
+# Heatmap: Algorithm × Language
+
+def plot_agg_heatmap(df):
+    pivot = df.groupby(["algorithm", "language"])["energy"].mean().unstack()
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    im = ax.imshow(pivot.values, cmap="YlOrRd", aspect="auto")
+    ax.set_xticks(range(len(pivot.columns)))
+    ax.set_xticklabels(pivot.columns)
+    ax.set_yticks(range(len(pivot.index)))
+    ax.set_yticklabels(pivot.index)
+    plt.colorbar(im, ax=ax, label="Mean Energy (J)")
+
+    vmax = pivot.values.max()
+    for i in range(len(pivot.index)):
+        for j in range(len(pivot.columns)):
+            val = pivot.values[i, j]
+            ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=10,
+                    color="white" if val > vmax * 0.65 else "black")
+
+    ax.set_title("Mean Energy Heatmap — Algorithm × Language (devices averaged)")
+    savefig("agg_heatmap_algo_lang.png")
+
+
+# Violin: Energy per Language
+
+def plot_agg_violin_language(df):
+    languages = sorted(df["language"].unique())
+    fig, ax   = plt.subplots(figsize=(7, 5))
+    data  = [df[df["language"] == lang]["energy"].values for lang in languages]
+    parts = ax.violinplot(data, positions=range(len(languages)),
+                          showmedians=True, showextrema=True)
+
+    for i, pc in enumerate(parts["bodies"]):
+        pc.set_facecolor(LANG_COLOR_LIST[i] if i < len(LANG_COLOR_LIST) else f"C{i}")
+        pc.set_alpha(0.75)
+    for key in ("cbars", "cmins", "cmaxes", "cmedians"):
+        if key in parts:
+            parts[key].set_color("black")
+            parts[key].set_linewidth(1.5)
+
+    ax.set_xticks(range(len(languages)))
+    ax.set_xticklabels(languages)
+    ax.set_ylabel("Energy (Joules)")
+    ax.set_title("Energy Distribution per Language (devices averaged)")
+    savefig("agg_violin_language.png")
+
+
+# Violin: Energy per Algorithm
+
+def plot_agg_violin_algorithm(df):
+    algorithms = sorted(df["algorithm"].unique())
+    fig, ax    = plt.subplots(figsize=(8, 5))
+    data  = [df[df["algorithm"] == alg]["energy"].values for alg in algorithms]
+    parts = ax.violinplot(data, positions=range(len(algorithms)),
+                          showmedians=True, showextrema=True)
+
+    for i, pc in enumerate(parts["bodies"]):
+        pc.set_facecolor(ALG_COLOR_LIST[i] if i < len(ALG_COLOR_LIST) else f"C{i}")
+        pc.set_alpha(0.75)
+    for key in ("cbars", "cmins", "cmaxes", "cmedians"):
+        if key in parts:
+            parts[key].set_color("black")
+            parts[key].set_linewidth(1.5)
+
+    ax.set_xticks(range(len(algorithms)))
+    ax.set_xticklabels(algorithms)
+    ax.set_ylabel("Energy (Joules)")
+    ax.set_title("Energy Distribution per Algorithm (devices averaged)")
+    savefig("agg_violin_algorithm.png")
+
+
+# Power Draw per Algorithm × Language
+
+def plot_agg_power_draw(df):
+    df = df.copy()
+    df["power"] = df["energy"] / df["time"]
+
+    algorithms = sorted(df["algorithm"].unique())
+    languages  = sorted(df["language"].unique())
+    x     = np.arange(len(algorithms))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    for i, lang in enumerate(languages):
+        means = [df[(df["language"] == lang) & (df["algorithm"] == alg)]["power"].mean()
+                 for alg in algorithms]
+        color = LANG_COLOR_LIST[i] if i < len(LANG_COLOR_LIST) else f"C{i}"
+        ax.bar(x + i * width - width / 2, means, width,
+               label=lang, color=color, alpha=0.85)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(algorithms)
+    ax.set_xlabel("Algorithm")
+    ax.set_ylabel("Mean Power Draw (Watts)")
+    ax.set_title("Average Power Draw per Algorithm × Language (devices averaged)")
+    ax.legend()
+    savefig("agg_power_draw.png")
+
+
+# Energy Ratio Python/JS per Algorithm × Size
+
+def plot_agg_energy_ratio(df):
+    sizes     = sorted(df["size"].unique())
+    languages = list(df["language"].unique())
+    if len(languages) < 2:
+        return
+    lang_a, lang_b = sorted(languages)[:2]
+
+    agg   = df.groupby(["language", "algorithm", "size"])["energy"].mean().reset_index()
+    pivot = agg.pivot_table(index=["algorithm", "size"],
+                            columns="language", values="energy").reset_index()
+    if lang_a not in pivot.columns or lang_b not in pivot.columns:
+        return
+    pivot["ratio"] = pivot[lang_a] / pivot[lang_b]
+
+    algorithms = sorted(pivot["algorithm"].unique())
+    fig, ax    = plt.subplots(figsize=(9, 5))
+
+    for i, alg in enumerate(algorithms):
+        sub = pivot[pivot["algorithm"] == alg].sort_values("size")
+        ax.plot(sub["size"], sub["ratio"],
+                marker="o", label=alg,
+                color=ALG_COLOR_LIST[i] if i < len(ALG_COLOR_LIST) else f"C{i}",
+                linewidth=1.8, markersize=5)
+
+    ax.axhline(1.0, color="#888888", linestyle="--", linewidth=1.2,
+               label="Equal energy")
+    set_log_xaxis(ax, sizes)
+    ax.set_xlabel("Dataset Size (log scale)")
+    ax.set_ylabel(f"Energy Ratio ({lang_a} / {lang_b})")
+    ax.set_title(f"Energy Ratio ({lang_a} vs {lang_b}) per Algorithm (devices averaged)")
+    ax.legend()
+    savefig("agg_energy_ratio.png")
+
+
+# Box Plot: Energy per Algorithm per Language
+
+def plot_agg_boxplot(df):
+    languages  = sorted(df["language"].unique())
+    algorithms = sorted(df["algorithm"].unique())
+
+    fig, axes = plt.subplots(1, len(languages),
+                             figsize=(6 * len(languages), 5), sharey=False)
+    if len(languages) == 1:
+        axes = [axes]
+
+    for ax, lang in zip(axes, languages):
+        data = [df[(df["language"] == lang) & (df["algorithm"] == alg)]["energy"].values
+                for alg in algorithms]
+        bp = ax.boxplot(data, patch_artist=True, notch=False)
+        for patch, color in zip(bp["boxes"], ALG_COLOR_LIST):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.75)
+        for median in bp["medians"]:
+            median.set_color("black")
+            median.set_linewidth(2)
+        ax.set_xticks(range(1, len(algorithms) + 1))
+        ax.set_xticklabels(algorithms, rotation=0)
+        ax.set_ylabel("Energy (J)")
+        ax.set_title(lang)
+
+    fig.suptitle("Energy Distribution by Algorithm per Language (devices averaged)",
+                 fontsize=13)
+    savefig("agg_boxplot_algo_per_lang.png")
+
+
+# Grouped Bar: Energy Breakdown per Algorithm
+
+def plot_agg_energy_breakdown(df):
+    agg = df.groupby(["language", "algorithm"])["energy"].mean().unstack(level=0)
+    fig, ax = plt.subplots(figsize=(8, 5))
+    agg.plot(kind="bar", ax=ax,
+             color=LANG_COLOR_LIST[:len(agg.columns)],
+             alpha=0.85, edgecolor="white", width=0.55)
+    ax.set_xlabel("Algorithm")
+    ax.set_ylabel("Mean Energy (J)")
+    ax.set_title("Mean Energy per Algorithm — Language Breakdown (devices averaged)")
+    ax.set_xticklabels(agg.index, rotation=0)
+    ax.legend(title="Language")
+    savefig("agg_energy_breakdown.png")
 
 if __name__ == "__main__":
     main()
