@@ -18,7 +18,7 @@ LANG_COLOR_LIST = [
     "#EE7733",
 ]
 
-# Algorithms (3 entries)
+# Algorithms
 ALG_COLOR_LIST = [
     "#009988",
     "#CC3311",
@@ -83,7 +83,7 @@ def compute_metrics(csv_file):
 def load_all_results():
     records = []
     for device_folder in os.listdir(BASE_DIR):
-        if not device_folder.startswith("results_MacOS_M1"):
+        if not device_folder.startswith("results_MacOS_"):
             continue
         device = device_folder.replace("results_MacOS_", "")
         device_path = os.path.join(BASE_DIR, device_folder)
@@ -126,38 +126,78 @@ def load_all_results():
 # STATISTICS PRINTING
 # ==========================================
 
-def print_statistics(df):
-    print("\n==============================")
-    print("ENERGY PER LANGUAGE-ALGORITHM-DATASET")
-    print("==============================\n")
-    print(df.groupby(["device", "language", "algorithm", "size"])["energy"]
-          .agg(["mean", "std", "min", "max"]))
+def save_statistics(df):
 
-    print("\n==============================")
-    print("ENERGY PER DATASET SIZE")
-    print("==============================\n")
-    print(df.groupby("size")["energy"].agg(["mean", "std"]))
+    output_dir = "analysis_outputs"
+    os.makedirs(output_dir, exist_ok=True)
 
-    print("\n==============================")
-    print("ENERGY PER LANGUAGE")
-    print("==============================\n")
-    print(df.groupby("language")["energy"].agg(["mean", "std"]))
+    # 1. Energy per Language-Algorithm-Dataset
+    energy_lang_algo_dataset = (
+        df.groupby(["device", "language", "algorithm", "size"])["energy"]
+        .agg(["mean", "std", "min", "max"])
+        .reset_index()
+    )
+    energy_lang_algo_dataset.to_csv(
+        os.path.join(output_dir, "energy_per_language_algorithm_dataset.csv"),
+        index=False
+    )
 
-    print("\n==============================")
-    print("ENERGY PER ALGORITHM")
-    print("==============================\n")
-    print(df.groupby("algorithm")["energy"].agg(["mean", "std"]))
+    # 2. Energy per Dataset Size
+    energy_per_dataset = (
+        df.groupby("size")["energy"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    energy_per_dataset.to_csv(
+        os.path.join(output_dir, "energy_per_dataset_size.csv"),
+        index=False
+    )
 
-    print("\n==============================")
-    print("ENERGY PER DEVICE")
-    print("==============================\n")
-    print(df.groupby("device")["energy"].agg(["mean", "std"]))
+    # 3. Energy per Language
+    energy_per_language = (
+        df.groupby("language")["energy"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    energy_per_language.to_csv(
+        os.path.join(output_dir, "energy_per_language.csv"),
+        index=False
+    )
 
-    print("\n==============================")
-    print("EXECUTION TIME PER LANGUAGE-ALGORITHM-DATASET")
-    print("==============================\n")
-    print(df.groupby(["device", "language", "algorithm", "size"])["time"]
-          .agg(["mean", "std"]))
+    # 4. Energy per Algorithm
+    energy_per_algorithm = (
+        df.groupby("algorithm")["energy"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    energy_per_algorithm.to_csv(
+        os.path.join(output_dir, "energy_per_algorithm.csv"),
+        index=False
+    )
+
+    # 5. Energy per Device
+    energy_per_device = (
+        df.groupby("device")["energy"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    energy_per_device.to_csv(
+        os.path.join(output_dir, "energy_per_device.csv"),
+        index=False
+    )
+
+    # 6. Execution Time per Language-Algorithm-Dataset
+    time_lang_algo_dataset = (
+        df.groupby(["device", "language", "algorithm", "size"])["time"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    time_lang_algo_dataset.to_csv(
+        os.path.join(output_dir, "time_per_language_algorithm_dataset.csv"),
+        index=False
+    )
+
+    print(f"\nStatistical tables saved in '{output_dir}' directory.\n")
 
 
 # ==========================================
@@ -586,7 +626,7 @@ def main():
           f"{df['algorithm'].nunique()} algorithm(s), "
           f"{df['size'].nunique()} dataset size(s).")
 
-    print_statistics(df)
+    save_statistics(df)
 
     print("\nGenerating plots ...")
     plot_energy_vs_size(df)
@@ -631,11 +671,8 @@ def aggregate_devices(df):
     """
     Average energy and time across devices for every
     (language, algorithm, size, run) combination.
-    Returns a new DataFrame without the 'device' column —
+    Returns a new DataFrame without the 'device' column,
     each row is the mean of both devices for that run slot.
-    If the two devices have different numbers of runs, the
-    groupby mean still works correctly (it averages whatever
-    is present).
     """
     agg = (df.groupby(["language", "algorithm", "size", "run"],
                        as_index=False)[["energy", "time"]]
@@ -650,7 +687,6 @@ def aggregate_devices(df):
 # Mean Energy vs Dataset Size
 
 def plot_agg_energy_vs_size(df):
-    
     sizes      = sorted(df["size"].unique())
     languages  = sorted(df["language"].unique())
     algorithms = sorted(df["algorithm"].unique())
